@@ -1,0 +1,10 @@
+apiVersion: "etcd.database.coreos.com/v1beta2"
+kind: "EtcdBackup"
+metadata:
+  name: example-etcd-cluster-backup
+spec:
+  clusterName: example-etcd-cluster
+  storageType: "ABS"
+  abs:
+    absContainer: "myabscontainer"
+    absSecret: "abs-credentials"
