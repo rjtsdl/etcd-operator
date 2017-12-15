@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: example-etcd-client-service-lb
+spec:
+  ports:
+  - name: client
+    port: 2379
+    protocol: TCP
+    targetPort: 2379
+  selector:
+    etcd_cluster: example-etcd-cluster
+  type: LoadBalancer
