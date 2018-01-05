@@ -8,5 +8,5 @@ spec:
   maxBackups: 3
   storageType: "ABS"
   abs:
-    path: "myabscontainer/example-etcdå.backup"
+    path: "myabscontainer/example-etcd.backup"
     absSecret: "abs-credentials"
