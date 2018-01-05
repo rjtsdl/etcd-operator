@@ -4,8 +4,6 @@ metadata:
   name: example-etcd-cluster-backup
 spec:
   etcdEndpoints: [<etcd-cluster-endpoints>]
-  backupIntervalInSecond: 60
-  maxBackups: 3
   storageType: "ABS"
   abs:
     path: "myabscontainer/example-etcd.backup"
