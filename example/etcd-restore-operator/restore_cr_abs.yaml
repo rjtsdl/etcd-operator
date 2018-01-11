@@ -9,5 +9,5 @@ spec:
     name: example-etcd-cluster
   backupStorageType: ABS
   abs:
-    path: "myabscontainer/example-etcd.backup"
+    path: "myabscontainer/example-etcd-large.backup"
     absSecret: "abs-credentials"
