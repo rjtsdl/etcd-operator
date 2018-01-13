@@ -11,7 +11,7 @@ spec:
     spec:
       containers:
       - name: etcd-backup-operator
-        image: rjtsdl/etcd-operator:v17
+        image: rjtsdl/etcd-operator:v18
         command:
         - etcd-backup-operator
         env:

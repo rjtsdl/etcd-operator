@@ -13,7 +13,7 @@ spec:
     spec:
       containers:
       - name: etcd-restore-operator
-        image: rjtsdl/etcd-operator:v17
+        image: rjtsdl/etcd-operator:v18
         command:
         - etcd-restore-operator
         env:
