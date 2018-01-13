@@ -59,6 +59,7 @@ func NewClientFromSecret(kubecli kubernetes.Interface, namespace, absSecret stri
 			return nil, err
 		}
 		w.ABSContainer = containerRef
+		// Doesn't need to check existence if SAS is already generated
 
 	} else {
 		storageAccount := se.Data[api.AzureSecretStorageAccount]
@@ -72,15 +73,17 @@ func NewClientFromSecret(kubecli kubernetes.Interface, namespace, absSecret stri
 		}
 		abs := bc.GetBlobService()
 		w.ABSContainer = abs.GetContainerReference(container)
-	}
-	// Confirm the container exist
-	containerExists, err := w.ABSContainer.Exists()
-	if err != nil {
-		return nil, err
+
+		// check the container exist
+		containerExists, err := w.ABSContainer.Exists()
+		if err != nil {
+			return nil, err
+		}
+
+		if !containerExists {
+			return nil, fmt.Errorf("container %v does not exist", container)
+		}
 	}
 
-	if !containerExists {
-		return nil, fmt.Errorf("container %v does not exist", container)
-	}
 	return w, nil
 }
