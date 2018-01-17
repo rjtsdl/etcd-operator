@@ -1,0 +1,25 @@
+apiVersion: "etcd.database.coreos.com/v1beta2"
+kind: "EtcdCluster"
+metadata:
+  name: "example-etcd-cluster"
+spec:
+  size: 3
+  version: "3.2.13"
+  pod:
+    persistentVolumeClaimSpec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 512Mi
+      storageClassName: azurefilemine
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values: ["etcd"]
+              topologyKey: kubernetes.io/hostname

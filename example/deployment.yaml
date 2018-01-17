@@ -11,7 +11,7 @@ spec:
     spec:
       containers:
       - name: etcd-operator
-        image: rjtsdl/etcd-operator:v18
+        image: rjtsdl/etcd-operator:v19
         command:
         - etcd-operator
         env:
