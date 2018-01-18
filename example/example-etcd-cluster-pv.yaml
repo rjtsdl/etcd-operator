@@ -11,7 +11,7 @@ spec:
       resources:
         requests:
           storage: 512Mi
-      storageClassName: azurefilemine
+      storageClassName: default
     affinity:
       podAntiAffinity:
         preferredDuringSchedulingIgnoredDuringExecution:
