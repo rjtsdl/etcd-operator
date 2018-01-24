@@ -220,18 +220,21 @@ func (c *Cluster) disasterRecovery(left etcdutil.MemberSet) error {
 			backupNow = true
 		}
 	}
+	exist := true
+	var err error
 	if backupNow {
 		c.logger.Info("made a latest backup")
 	} else {
 		// We don't return error if backupnow failed. Instead, we ask if there is previous backup.
 		// If so, we can still continue. Otherwise, it's fatal error.
-		exist, err := c.bm.checkBackupExist(c.cluster.Spec.Version)
+		exist, err = c.bm.checkBackupExist(c.cluster.Spec.Version)
 		if err != nil {
 			c.logger.Errorln(err)
 			return err
 		}
 		if !exist {
-			return newFatalError("no backup exist for disaster recovery")
+			//return newFatalError("no backup exist for disaster recovery")
+			c.logger.Warningln("no backup exist for disaster recovery, we will bootstrap instead of recover")
 		}
 	}
 
@@ -241,7 +244,7 @@ func (c *Cluster) disasterRecovery(left etcdutil.MemberSet) error {
 			return err
 		}
 	}
-	return c.recover()
+	return c.startSeedMember(exist)
 }
 
 func needUpgrade(pods []*v1.Pod, cs spec.ClusterSpec) bool {

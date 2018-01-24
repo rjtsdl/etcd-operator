@@ -31,8 +31,8 @@ import (
 	"github.com/coreos/etcd-operator/pkg/util/etcdutil"
 	"github.com/coreos/etcd-operator/pkg/util/k8sutil"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/coreos/etcd/clientv3"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -154,6 +154,13 @@ func (b *Backup) Run() {
 			}
 		}
 	}()
+
+	logrus.Info("save snapshot at very beginning")
+	rev, err := b.saveSnap(lastSnapRev)
+	if err != nil {
+		logrus.Errorf("failed to save snapshot: %v", err)
+	}
+	lastSnapRev = rev
 
 	for {
 		var ackchan chan backupNowAck
