@@ -12,14 +12,3 @@ spec:
         requests:
           storage: 512Mi
       storageClassName: default
-    affinity:
-      podAntiAffinity:
-        preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            podAffinityTerm:
-              labelSelector:
-                matchExpressions:
-                - key: app
-                  operator: In
-                  values: ["etcd"]
-              topologyKey: kubernetes.io/hostname
