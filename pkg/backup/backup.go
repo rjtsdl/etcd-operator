@@ -155,17 +155,19 @@ func (b *Backup) Run() {
 		}
 	}()
 
-	logrus.Info("save snapshot at very beginning")
-	rev, err := b.saveSnap(lastSnapRev)
-	if err != nil {
-		logrus.Errorf("failed to save snapshot: %v", err)
-	}
-	lastSnapRev = rev
+	// We define bootstrap time is the first 10 mins after initial start
+	endBootstrapTime := time.Now().Add(600 * time.Second)
+	shortInterval := 120 * time.Second
 
+	intervalInUse := shortInterval
 	for {
 		var ackchan chan backupNowAck
 		select {
-		case <-time.After(interval):
+		case <-time.After(intervalInUse):
+			if time.Now().After(endBootstrapTime) {
+				// We set intervalInUse to be the regular interval
+				intervalInUse = interval
+			}
 		case ackchan = <-b.backupNow:
 			logrus.Info("received a backup request")
 		}
