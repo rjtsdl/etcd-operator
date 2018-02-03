@@ -50,6 +50,7 @@ type Backup struct {
 	clusterName   string
 	namespace     string
 	policy        spec.BackupPolicy
+	tlsPolicy     *spec.TLSPolicy
 	listenAddr    string
 	etcdTLSConfig *tls.Config
 	selfHosted    bool
@@ -107,33 +108,36 @@ func New(kclient kubernetes.Interface, clusterName, ns string, sp spec.ClusterSp
 		return nil, fmt.Errorf("unsupported storage type: %v", sp.Backup.StorageType)
 	}
 
-	var tc *tls.Config
-	if sp.TLS.IsSecureClient() {
-		d, err := k8sutil.GetTLSDataFromSecret(kclient, ns, sp.TLS.Static.OperatorSecret)
-		if err != nil {
-			return nil, err
-		}
-		tc, err = etcdutil.NewTLSConfig(d.CertData, d.KeyData, d.CAData)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	return &Backup{
-		kclient:       kclient,
-		clusterName:   clusterName,
-		namespace:     ns,
-		policy:        *sp.Backup,
-		listenAddr:    listenAddr,
-		be:            be,
-		etcdTLSConfig: tc,
-		selfHosted:    sp.SelfHosted != nil,
+		kclient:     kclient,
+		clusterName: clusterName,
+		namespace:   ns,
+		policy:      *sp.Backup,
+		tlsPolicy:   sp.TLS,
+		listenAddr:  listenAddr,
+		be:          be,
+		selfHosted:  sp.SelfHosted != nil,
 
 		backupNow: make(chan chan backupNowAck),
 	}, nil
 }
 
+func (b *Backup) refreshEtcdTLSConfig() error {
+	if b.tlsPolicy.IsSecureClient() {
+		tlsConfig, err := k8sutil.GenerateTLSConfig(b.kclient, b.tlsPolicy.Static.OperatorSecret, b.namespace)
+		if err != nil {
+			return err
+		}
+		b.etcdTLSConfig = tlsConfig
+	}
+	return nil
+}
+
 func (b *Backup) Run() {
+	err := b.refreshEtcdTLSConfig()
+	if err != nil {
+		logrus.Warningf("failed to refresh etcd tlsConfig: %v", err)
+	}
 	go b.startHTTP()
 
 	lastSnapRev := b.getLatestBackupRev()
@@ -171,7 +175,10 @@ func (b *Backup) Run() {
 		case ackchan = <-b.backupNow:
 			logrus.Info("received a backup request")
 		}
-
+		err := b.refreshEtcdTLSConfig()
+		if err != nil {
+			logrus.Warningf("failed to refresh etcd tlsConfig: %v", err)
+		}
 		rev, err := b.saveSnap(lastSnapRev)
 		if err != nil {
 			logrus.Errorf("failed to save snapshot: %v", err)

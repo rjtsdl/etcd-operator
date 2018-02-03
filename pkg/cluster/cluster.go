@@ -91,7 +91,10 @@ type Cluster struct {
 
 	bm *backupManager
 
-	tlsConfig *tls.Config
+	// the would be refreshed on demand
+	tlsConfig       *tls.Config
+	kubeCli         kubernetes.Interface
+	clientTLSSecret string
 
 	gc *garbagecollection.GC
 }
@@ -112,6 +115,7 @@ func New(config Config, cl *spec.EtcdCluster) *Cluster {
 		stopCh:      make(chan struct{}),
 		status:      cl.Status.Copy(),
 		gc:          garbagecollection.New(config.KubeCli, cl.Namespace),
+		kubeCli:     config.KubeCli,
 	}
 
 	go func() {
@@ -130,6 +134,18 @@ func New(config Config, cl *spec.EtcdCluster) *Cluster {
 	}()
 
 	return c
+}
+
+func (c *Cluster) refreshTLSConfig() error {
+	if c.isSecureClient() {
+		tlsConfig, err := k8sutil.GenerateTLSConfig(c.kubeCli, c.cluster.Spec.TLS.Static.OperatorSecret, c.cluster.Namespace)
+		if err != nil {
+			return err
+		}
+		c.tlsConfig = tlsConfig
+	}
+	return nil
+
 }
 
 func (c *Cluster) setup() error {
@@ -151,15 +167,9 @@ func (c *Cluster) setup() error {
 		return fmt.Errorf("unexpected cluster phase: %s", c.status.Phase)
 	}
 
-	if c.isSecureClient() {
-		d, err := k8sutil.GetTLSDataFromSecret(c.config.KubeCli, c.cluster.Namespace, c.cluster.Spec.TLS.Static.OperatorSecret)
-		if err != nil {
-			return err
-		}
-		c.tlsConfig, err = etcdutil.NewTLSConfig(d.CertData, d.KeyData, d.CAData)
-		if err != nil {
-			return err
-		}
+	err = c.refreshTLSConfig()
+	if err != nil {
+		return fmt.Errorf("faled to refresh tlsConfig: %v", err)
 	}
 
 	if c.cluster.Spec.Backup != nil {
@@ -267,6 +277,10 @@ func (c *Cluster) run() {
 		case event := <-c.eventCh:
 			switch event.typ {
 			case eventModifyCluster:
+				err := c.refreshTLSConfig()
+				if err != nil {
+					c.logger.Warningf("failed to refresh tlsConfig: %v", err)
+				}
 				if isSpecEqual(event.cluster.Spec, c.cluster.Spec) {
 					break
 				}
@@ -277,7 +291,7 @@ func (c *Cluster) run() {
 				c.cluster = event.cluster
 
 				if !isBackupPolicyEqual(ob, nb) {
-					err := c.updateBackupPolicy(ob, nb)
+					err = c.updateBackupPolicy(ob, nb)
 					if err != nil {
 						c.logger.Errorf("failed to update backup policy: %v", err)
 						c.status.SetReason(err.Error())
@@ -293,6 +307,10 @@ func (c *Cluster) run() {
 			}
 
 		case <-time.After(reconcileInterval):
+			err := c.refreshTLSConfig()
+			if err != nil {
+				c.logger.Warningf("failed to refresh tlsConfig: %v", err)
+			}
 			start := time.Now()
 
 			if c.cluster.Spec.Paused {
