@@ -15,6 +15,9 @@
 package k8sutil
 
 import (
+	"crypto/tls"
+	"fmt"
+
 	"github.com/coreos/etcd-operator/pkg/util/etcdutil"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,7 +30,7 @@ type TLSData struct {
 	CAData   []byte
 }
 
-func GetTLSDataFromSecret(kubecli kubernetes.Interface, ns, se string) (*TLSData, error) {
+func getTLSDataFromSecret(kubecli kubernetes.Interface, ns, se string) (*TLSData, error) {
 	secret, err := kubecli.CoreV1().Secrets(ns).Get(se, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -37,4 +40,19 @@ func GetTLSDataFromSecret(kubecli kubernetes.Interface, ns, se string) (*TLSData
 		KeyData:  secret.Data[etcdutil.CliKeyFile],
 		CAData:   secret.Data[etcdutil.CliCAFile],
 	}, nil
+}
+
+func GenerateTLSConfig(kubecli kubernetes.Interface, clientTLSSecret, namespace string) (*tls.Config, error) {
+	var tlsConfig *tls.Config
+	if len(clientTLSSecret) != 0 {
+		d, err := getTLSDataFromSecret(kubecli, namespace, clientTLSSecret)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get TLS data from secret (%v): %v", clientTLSSecret, err)
+		}
+		tlsConfig, err = etcdutil.NewTLSConfig(d.CertData, d.KeyData, d.CAData)
+		if err != nil {
+			return nil, fmt.Errorf("failed to constructs tls config: %v", err)
+		}
+	}
+	return tlsConfig, nil
 }
