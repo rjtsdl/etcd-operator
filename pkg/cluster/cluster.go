@@ -475,6 +475,13 @@ func (c *Cluster) setupServices() error {
 	return k8sutil.CreatePeerService(c.config.KubeCli, c.cluster.Name, c.cluster.Namespace, c.cluster.AsOwner())
 }
 
+func (c *Cluster) isPodPVEnabled() bool {
+	if podPolicy := c.cluster.Spec.Pod; podPolicy != nil {
+		return podPolicy.PersistentVolumeClaimSpec != nil
+	}
+	return false
+}
+
 func (c *Cluster) createPod(members etcdutil.MemberSet, m *etcdutil.Member, state string, needRecovery bool) error {
 	token := ""
 	if state == "new" {
@@ -484,6 +491,17 @@ func (c *Cluster) createPod(members etcdutil.MemberSet, m *etcdutil.Member, stat
 	pod := k8sutil.NewEtcdPod(m, members.PeerURLPairs(), c.cluster.Name, state, token, c.cluster.Spec, c.cluster.AsOwner())
 	if needRecovery {
 		k8sutil.AddRecoveryToPod(pod, c.cluster.Name, token, m, c.cluster.Spec)
+	}
+
+	if c.isPodPVEnabled() {
+		pvc := k8sutil.NewEtcdPodPVC(m, *c.cluster.Spec.Pod.PersistentVolumeClaimSpec, c.cluster.Name, c.cluster.Namespace, c.cluster.AsOwner())
+		_, err := c.config.KubeCli.CoreV1().PersistentVolumeClaims(c.cluster.Namespace).Create(pvc)
+		if err != nil {
+			return fmt.Errorf("failed to create PVC for member (%s): %v", m.Name, err)
+		}
+		k8sutil.AddEtcdVolumeToPod(pod, pvc)
+	} else {
+		k8sutil.AddEtcdVolumeToPod(pod, nil)
 	}
 	_, err := c.config.KubeCli.Core().Pods(c.cluster.Namespace).Create(pod)
 	return err
