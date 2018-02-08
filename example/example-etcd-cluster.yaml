@@ -6,15 +6,10 @@ spec:
   size: 3
   version: "3.1.8"
   pod:
-    affinity:
-      podAntiAffinity:
-        preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            podAffinityTerm:
-              labelSelector:
-                matchExpressions:
-                - key: app
-                  operator: In
-                  values: ["etcd"]
-              topologyKey: kubernetes.io/hostname
+    persistentVolumeClaimSpec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 512Mi
+      storageClassName: default
 
