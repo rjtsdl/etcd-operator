@@ -6,10 +6,6 @@ spec:
   size: 3
   version: "3.1.8"
   pod:
-    persistentVolumeClaimSpec:
-      accessModes: ["ReadWriteOnce"]
-      resources:
-        requests:
-          storage: 512Mi
-      storageClassName: my-storage
+    hostPath:
+      path: /tmp/rjtsdl
 
