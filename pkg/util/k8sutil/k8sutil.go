@@ -266,8 +266,9 @@ func NewEtcdPodPVC(m *etcdutil.Member, pvcSpec v1.PersistentVolumeClaimSpec, clu
 func NewEtcdPodHostPath(m *etcdutil.Member, hostPath v1.HostPathVolumeSource, namespace string) *v1.HostPathVolumeSource {
 	hp := &v1.HostPathVolumeSource{
 		Path: HostPathFromMember(hostPath.Path, m.Name, namespace),
-		// Type is not supported before k8s 1.8, I am assuming docker with create
-		// empty directory if it is not there
+		// Type is not supported before k8s 1.8,
+		// As docker with create empty directory if it is not there
+		// The assumption here is we use docker as runtime
 	}
 	return hp
 }
