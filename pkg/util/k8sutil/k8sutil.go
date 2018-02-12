@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -78,6 +79,11 @@ func GetPodNames(pods []*v1.Pod) []string {
 // PVCNameFromMember the way we get PVC name from the member name
 func PVCNameFromMember(memberName string) string {
 	return memberName
+}
+
+// HostPathFromMember the way we get hostPath for the member name
+func HostPathFromMember(hp, memberName, namespace string) string {
+	return path.Join(hp, namespace, memberName)
 }
 
 func makeRestoreInitContainerSpec(backupAddr, token, baseImage, version string, m *etcdutil.Member) string {
@@ -217,11 +223,15 @@ func newEtcdServiceManifest(svcName, clusterName, clusterIP string, ports []v1.S
 }
 
 // AddEtcdVolumeToPod abstract the process of appending volume spec to pod spec
-func AddEtcdVolumeToPod(pod *v1.Pod, pvc *v1.PersistentVolumeClaim) {
+func AddEtcdVolumeToPod(pod *v1.Pod, pvc *v1.PersistentVolumeClaim, hostPath *v1.HostPathVolumeSource) {
 	vol := v1.Volume{Name: etcdVolumeName}
 	if pvc != nil {
 		vol.VolumeSource = v1.VolumeSource{
 			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{ClaimName: pvc.Name},
+		}
+	} else if hostPath != nil {
+		vol.VolumeSource = v1.VolumeSource{
+			HostPath: hostPath,
 		}
 	} else {
 		vol.VolumeSource = v1.VolumeSource{EmptyDir: &v1.EmptyDirVolumeSource{}}
@@ -250,6 +260,17 @@ func NewEtcdPodPVC(m *etcdutil.Member, pvcSpec v1.PersistentVolumeClaimSpec, clu
 	}
 	addOwnerRefToObject(pvc.GetObjectMeta(), owner)
 	return pvc
+}
+
+// NewEtcdPodHostPath generate HostPathVolumeSource object from etcd pod's hostpath spec
+func NewEtcdPodHostPath(m *etcdutil.Member, hostPath v1.HostPathVolumeSource, namespace string) *v1.HostPathVolumeSource {
+	hp := &v1.HostPathVolumeSource{
+		Path: HostPathFromMember(hostPath.Path, m.Name, namespace),
+		// Type is not supported before k8s 1.8,
+		// As docker with create empty directory if it is not there
+		// The assumption here is we use docker as runtime
+	}
+	return hp
 }
 
 func NewEtcdPod(m *etcdutil.Member, initialCluster []string, clusterName, state, token string, cs spec.ClusterSpec, owner metav1.OwnerReference) *v1.Pod {

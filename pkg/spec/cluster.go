@@ -180,6 +180,11 @@ type PodPolicy struct {
 	// Note. This feature is in alpha stage. It is currently only used as non-stable storage,
 	// not the stable storage. Future work need to make it used as stable storage.
 	PersistentVolumeClaimSpec *v1.PersistentVolumeClaimSpec `json:"persistentVolumeClaimSpec,omitempty"`
+
+	// HostPath is the spec to describe volume for the etcd container
+	// This filed is optinal. If no HostPath, etcd container will use emptyDir as volume
+	// Note, this has lower priority than PersistentVolumeClaimSpec
+	HostPath *v1.HostPathVolumeSource `json:"hostPath,emitempty"`
 }
 
 func (c *ClusterSpec) Validate() error {
