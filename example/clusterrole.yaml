@@ -37,3 +37,9 @@ rules:
   - deployments
   verbs:
   - "*"
+- apiGroups:
+  - ""
+  resources:
+  - "persistentvolumes"
+  verbs:
+  - "*"

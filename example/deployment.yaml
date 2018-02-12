@@ -11,7 +11,7 @@ spec:
     spec:
       containers:
       - name: etcd-operator
-        image: rjtsdl/etcd-operator:v0.5.2-azure-pv
+        image: rjtsdl/etcd-operator:v0.5.2-azure-pv1
         env:
         - name: MY_POD_NAMESPACE
           valueFrom:

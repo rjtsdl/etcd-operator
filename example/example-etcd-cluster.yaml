@@ -11,5 +11,5 @@ spec:
       resources:
         requests:
           storage: 512Mi
-      storageClassName: default
+      storageClassName: my-storage
 
