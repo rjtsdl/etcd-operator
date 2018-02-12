@@ -482,6 +482,13 @@ func (c *Cluster) isPodPVEnabled() bool {
 	return false
 }
 
+func (c *Cluster) isPodHostPathEnabled() bool {
+	if podPolicy := c.cluster.Spec.Pod; podPolicy != nil {
+		return podPolicy.HostPath != nil
+	}
+	return false
+}
+
 func (c *Cluster) createPod(members etcdutil.MemberSet, m *etcdutil.Member, state string, needRecovery bool) error {
 	token := ""
 	if state == "new" {
@@ -499,9 +506,12 @@ func (c *Cluster) createPod(members etcdutil.MemberSet, m *etcdutil.Member, stat
 		if err != nil {
 			return fmt.Errorf("failed to create PVC for member (%s): %v", m.Name, err)
 		}
-		k8sutil.AddEtcdVolumeToPod(pod, pvc)
+		k8sutil.AddEtcdVolumeToPod(pod, pvc, nil)
+	} else if c.isPodHostPathEnabled() {
+		hp := k8sutil.NewEtcdPodHostPath(m, *c.cluster.Spec.Pod.HostPath, c.cluster.Namespace)
+		k8sutil.AddEtcdVolumeToPod(pod, nil, hp)
 	} else {
-		k8sutil.AddEtcdVolumeToPod(pod, nil)
+		k8sutil.AddEtcdVolumeToPod(pod, nil, nil)
 	}
 	_, err := c.config.KubeCli.Core().Pods(c.cluster.Namespace).Create(pod)
 	return err
