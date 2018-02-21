@@ -3,7 +3,7 @@ kind: "EtcdCluster"
 metadata:
   name: "example-etcd-cluster"
 spec:
-  size: 3
+  size: 1
   version: "3.1.8"
   pod:
     affinity:
