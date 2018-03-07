@@ -178,6 +178,7 @@ func (c *Cluster) setup() error {
 			return err
 		}
 		if !shouldCreateCluster {
+
 			err := c.bm.upgradeIfNeeded()
 			if err != nil {
 				return err
