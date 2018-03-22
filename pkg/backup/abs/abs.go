@@ -15,14 +15,22 @@
 package abs
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"path"
 
 	"github.com/Azure/azure-sdk-for-go/storage"
+	"github.com/pborman/uuid"
 )
 
-const v1 = "v1/"
+const (
+	// AzureBlobBlockChunkLimitInBytes 100MiB is the limit
+	AzureBlobBlockChunkLimitInBytes = 100 * 1024 * 1024
+
+	v1 = "v1/"
+)
 
 // ABS is a helper to wrap complex ABS logic
 type ABS struct {
@@ -67,12 +75,36 @@ func (w *ABS) Put(key string, r io.Reader) error {
 	blobName := path.Join(v1, w.prefix, key)
 	blob := w.container.GetBlobReference(blobName)
 
-	putBlobOpts := storage.PutBlobOptions{}
-	err := blob.CreateBlockBlobFromReader(r, &putBlobOpts)
+	err := blob.CreateBlockBlob(&storage.PutBlobOptions{})
 	if err != nil {
-		return fmt.Errorf("create block blob from reader failed: %v", err)
+		return err
 	}
 
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(r)
+	len := len(buf.Bytes())
+	chunckCount := len/AzureBlobBlockChunkLimitInBytes + 1
+	blocks := make([]storage.Block, 0, chunckCount)
+	for i := 0; i < chunckCount; i++ {
+		blockID := base64.StdEncoding.EncodeToString([]byte(uuid.New()))
+		blocks = append(blocks, storage.Block{ID: blockID, Status: storage.BlockStatusLatest})
+		start := i * AzureBlobBlockChunkLimitInBytes
+		end := (i + 1) * AzureBlobBlockChunkLimitInBytes
+		if len < end {
+			end = len
+		}
+
+		chunk := buf.Bytes()[start:end]
+		err = blob.PutBlock(blockID, chunk, &storage.PutBlockOptions{})
+		if err != nil {
+			return err
+		}
+	}
+
+	err = blob.PutBlockList(blocks, &storage.PutBlockListOptions{})
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
