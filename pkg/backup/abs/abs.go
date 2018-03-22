@@ -15,60 +15,72 @@
 package abs
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"log"
+	"net/url"
 	"path"
 
 	"github.com/Azure/azure-sdk-for-go/storage"
+	"github.com/Azure/azure-storage-blob-go/2016-05-31/azblob"
 )
 
 const v1 = "v1/"
 
 // ABS is a helper to wrap complex ABS logic
 type ABS struct {
-	container *storage.Container
-	prefix    string
-	client    *storage.BlobStorageClient
+	containerURL azblob.ContainerURL
+	container    *storage.Container
+	prefix       string
+	client       *storage.BlobStorageClient
+	ctx          context.Context
 }
 
 // New returns a new ABS object for a given container using credentials set in the environment
 func New(container, accountName, accountKey, prefix string) (*ABS, error) {
-	basicClient, err := storage.NewBasicClient(accountName, accountKey)
-	if err != nil {
-		return nil, fmt.Errorf("create ABS client failed: %v", err)
-	}
-
-	return NewFromClient(container, prefix, &basicClient)
-}
-
-// NewFromClient returns a new ABS object for a given container using the supplied storageClient
-func NewFromClient(container, prefix string, storageClient *storage.Client) (*ABS, error) {
-	client := storageClient.GetBlobService()
-
-	// Check if supplied container exists
-	containerRef := client.GetContainerReference(container)
-	containerExists, err := containerRef.Exists()
+	credential := azblob.NewSharedKeyCredential(accountName, accountKey)
+	p := azblob.NewPipeline(credential, PipelineOptions{})
+	u, err := url.Parse(fmt.Sprintf("https://%s.blob.core.windows.net", accountName))
 	if err != nil {
 		return nil, err
 	}
-	if !containerExists {
-		return nil, fmt.Errorf("container %v does not exist", container)
+
+	serviceURL := azblob.NewServiceURL(*u, p)
+	ctx := context.Background()
+
+	containerURL := serviceURL.NewContainerURL(container)
+	_, err = containerURL.Create(ctx, Metadata{}, PublicAccessNone)
+	if err != nil {
+		// it could be the container is already exists. For this scenario, we need to handle error better
+		// For now, we just ignore err
+		fmt.Warningf("containerURL.Create failed, need to check if it is because the container already existed")
 	}
 
 	return &ABS{
-		container: containerRef,
-		prefix:    prefix,
-		client:    &client,
+		containerURL: containerURL,
+		prefix:       prefix,
+		ctx:          ctx,
 	}, nil
 }
 
 // Put puts a chunk of data into a ABS container using the provided key for its reference
 func (w *ABS) Put(key string, r io.Reader) error {
 	blobName := path.Join(v1, w.prefix, key)
-	blob := w.container.GetBlobReference(blobName)
+	blobURL := w.containerURL.NewBlockBlobURL(blobName)
 
-	putBlobOpts := storage.PutBlobOptions{}
-	err := blob.CreateBlockBlobFromReader(r, &putBlobOpts)
+	b, err := ioutil.ReadAll(r)
+	if err != nil {
+		return fmt.Errorf("read bytes from reader failed: %v", err)
+	}
+
+	_, err = blobURL.PutBlob(
+		w.ctx, bytes.NewReader(b), 
+		azblob.BlobHTTPHeaders{ContentType: "text/plain"}, 
+		azblob.Metadata{}, 
+		azblob.BlobAccessConditions{})
 	if err != nil {
 		return fmt.Errorf("create block blob from reader failed: %v", err)
 	}
@@ -79,7 +91,15 @@ func (w *ABS) Put(key string, r io.Reader) error {
 // Get gets the blob object specified by key from a ABS container
 func (w *ABS) Get(key string) (io.ReadCloser, error) {
 	blobName := path.Join(v1, w.prefix, key)
-	blob := w.container.GetBlobReference(blobName)
+	blobURL := containerURL.NewBlockBlobURL(blobName)
+
+	get, err := blobURL.GetBlob(
+		w.ctx, 
+		azblob.BlobRange{}, 
+		azblob.BlobAccessConditions{}, false)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	opts := &storage.GetBlobOptions{}
 	return blob.Get(opts)
