@@ -31,6 +31,8 @@ const (
 	ABSStorageAccount = "storage-account"
 	// ABSStorageKey defines the key for the Azure Storage Key value in the ABS Kubernetes secret
 	ABSStorageKey = "storage-key"
+	// ABSAccountSASToken defines the SAS token
+	ABSAccountSASToken = "storage-sas-token"
 )
 
 var errPVZeroSize = errors.New("PV backup should not have 0 size volume")

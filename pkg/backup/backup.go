@@ -96,6 +96,7 @@ func New(kclient kubernetes.Interface, clusterName, ns string, sp spec.ClusterSp
 		absCli, err := abs.New(os.Getenv(env.ABSContainer),
 			os.Getenv(env.ABSStorageAccount),
 			os.Getenv(env.ABSStorageKey),
+			os.Getenv(env.ABSAccountSASToken),
 			path.Join(ns, clusterName))
 		if err != nil {
 			return nil, err

@@ -40,12 +40,22 @@ type ABS struct {
 }
 
 // New returns a new ABS object for a given container using credentials set in the environment
-func New(container, accountName, accountKey, prefix string) (*ABS, error) {
-	basicClient, err := storage.NewBasicClient(accountName, accountKey)
-	if err != nil {
-		return nil, fmt.Errorf("create ABS client failed: %v", err)
+func New(container, accountName, accountKey, accountSASToken, prefix string) (*ABS, error) {
+	var basicClient storage.Client
+	var err error
+	if len(accountSASToken) != 0 {
+		// Reference: https://github.com/Azure/azure-sdk-for-go/blob/eae258195456be76b2ec9ad2ee2ab63cdda365d9/storage/client_test.go#L313
+		endpoint := fmt.Sprintf("http://%s.blob.core.windows.net/%s", accountName, container)
+		basicClient, err = storage.NewAccountSASClientFromEndpointToken(endpoint, accountSASToken)
+		if err != nil {
+			return nil, fmt.Errorf("create ABS client (from SAS token) failed: %v", err)
+		}
+	} else {
+		basicClient, err = storage.NewBasicClient(accountName, accountKey)
+		if err != nil {
+			return nil, fmt.Errorf("create ABS client (front storage account name and key) failed: %v", err)
+		}
 	}
-
 	return NewFromClient(container, prefix, &basicClient)
 }
 
