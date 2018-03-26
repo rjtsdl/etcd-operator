@@ -5,22 +5,10 @@ metadata:
 spec:
   size: 1
   version: "3.1.8"
-  pod:
-    affinity:
-      podAntiAffinity:
-        preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            podAffinityTerm:
-              labelSelector:
-                matchExpressions:
-                - key: app
-                  operator: In
-                  values: ["etcd"]
-              topologyKey: kubernetes.io/hostname
   backup:
     backupIntervalInSecond: 60
     maxBackups: 3
     storageType: "ABS"
     abs:
-      absContainer: myabscontainer
+      absContainer: <abs-container>
       absSecret: abs-credentials

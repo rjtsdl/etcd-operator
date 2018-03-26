@@ -11,7 +11,7 @@ spec:
     spec:
       containers:
       - name: etcd-operator
-        image: quay.io/deis/etcd-operator:v0.5.2-azure-p2
+        image: rjtsdl/etcd-operator:v0.5.2-azure-sas-v2
         env:
         - name: MY_POD_NAMESPACE
           valueFrom:
