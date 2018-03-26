@@ -208,7 +208,12 @@ func (c *Cluster) create() error {
 		}
 	}
 
-	// We never need to create seed member, we always go through reconcile loop
+	if c.cluster.Spec.Backup == nil {
+		// We only need to create seed member, if no backup policy
+		if err := c.prepareSeedMember(); err != nil {
+			return err
+		}
+	}
 
 	if err := c.setupServices(); err != nil {
 		return fmt.Errorf("cluster create: fail to create client service LB: %v", err)

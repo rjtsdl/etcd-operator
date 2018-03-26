@@ -189,9 +189,17 @@ func AttachABSToPodSpec(ps *v1.PodSpec, ws spec.ABSSource) {
 		LocalObjectReference: v1.LocalObjectReference{Name: ws.ABSSecret},
 		Key:                  spec.ABSStorageAccount,
 	}
+
+	opt := true
 	storageKeySelector := v1.SecretKeySelector{
 		LocalObjectReference: v1.LocalObjectReference{Name: ws.ABSSecret},
 		Key:                  spec.ABSStorageKey,
+		Optional:             &opt,
+	}
+	storageSASSelector := v1.SecretKeySelector{
+		LocalObjectReference: v1.LocalObjectReference{Name: ws.ABSSecret},
+		Key:                  spec.ABSAccountSASToken,
+		Optional:             &opt,
 	}
 
 	ps.Containers[0].Env = append(ps.Containers[0].Env, v1.EnvVar{
@@ -200,6 +208,9 @@ func AttachABSToPodSpec(ps *v1.PodSpec, ws spec.ABSSource) {
 	}, v1.EnvVar{
 		Name:      backupenv.ABSStorageKey,
 		ValueFrom: &v1.EnvVarSource{SecretKeyRef: &storageKeySelector},
+	}, v1.EnvVar{
+		Name:      backupenv.ABSAccountSASToken,
+		ValueFrom: &v1.EnvVarSource{SecretKeyRef: &storageSASSelector},
 	}, v1.EnvVar{
 		Name:  backupenv.ABSContainer,
 		Value: ws.ABSContainer,
