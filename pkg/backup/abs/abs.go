@@ -67,8 +67,7 @@ func NewFromClient(container, prefix string, storageClient *storage.Client) (*AB
 	containerRef := client.GetContainerReference(container)
 	containerExists, err := containerRef.Exists()
 	if err != nil {
-		return nil, fmt.Errorf("containerRef.Exists failed. containerURL: %s, containerRef.GetMetadata: %v, raw error: %v",
-			containerRef.GetURL(), containerRef.GetMetadata(&storage.ContainerMetadataOptions{}), err)
+		return nil, fmt.Errorf("containerRef.Exists failed. error: %v", err)
 	}
 	if !containerExists {
 		return nil, fmt.Errorf("container %v does not exist", container)
