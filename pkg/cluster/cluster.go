@@ -208,7 +208,12 @@ func (c *Cluster) create() error {
 		}
 	}
 
-	// We never need to create seed member, we always go through reconcile loop
+	if c.cluster.Spec.Backup == nil {
+		// We only need to create seed member, if no backup policy
+		if err := c.prepareSeedMember(); err != nil {
+			return err
+		}
+	}
 
 	if err := c.setupServices(); err != nil {
 		return fmt.Errorf("cluster create: fail to create client service LB: %v", err)
@@ -426,7 +431,7 @@ func (c *Cluster) startSeedMember(recoverFromBackup bool) error {
 	}
 	c.memberCounter++
 	c.members = ms
-	c.logger.Infof("cluster created with seed member (%s)", m.Name)
+	c.logger.Infof("cluster created with seed member (%s), from backup (%v)", m.Name, recoverFromBackup)
 	return nil
 }
 
@@ -514,6 +519,7 @@ func (c *Cluster) createPod(members etcdutil.MemberSet, m *etcdutil.Member, stat
 	} else {
 		k8sutil.AddEtcdVolumeToPod(pod, nil, nil)
 	}
+
 	_, err := c.config.KubeCli.Core().Pods(c.cluster.Namespace).Create(pod)
 	return err
 }
