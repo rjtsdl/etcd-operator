@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/storage"
 )
@@ -10,50 +12,57 @@ import (
 var (
 	container   string
 	accountName string
-	sasToken    string
+	accountKey  string
 )
 
 func init() {
 	flag.StringVar(&container, "container", "", "container name")
 	flag.StringVar(&accountName, "account-name", "", "storage account name")
-	flag.StringVar(&sasToken, "sas-token", "", "SAS token")
+	flag.StringVar(&accountKey, "account-key", "", "storage account key")
 
 	flag.Parse()
 }
 
 func main() {
-	testFunctionsWithSAS()
+	sas, err := GenerateSASTokenForEtcdBackup(container, accountName, accountKey)
+	fmt.Printf("sas: %s  err: %v", sas, err)
 }
 
-func testFunctionsWithSAS() {
-	endpoint := fmt.Sprintf("http://%s.blob.core.windows.net/%s", accountName, container)
-	basicClient, err := storage.NewAccountSASClientFromEndpointToken(endpoint, sasToken)
-
-	blobClient := basicClient.GetBlobService()
-	containerRef := blobClient.GetContainerReference(container)
-
-	// containerRef.Exists()
-	containerExists, err := containerRef.Exists()
+// GenerateSASTokenForEtcdBackup creates a SAS token for backup
+func GenerateSASTokenForEtcdBackup(container, storageAccount, storageKey string) (string, error) {
+	basicClient, err := storage.NewBasicClient(storageAccount, storageKey)
 	if err != nil {
-		fmt.Printf("containerRef.Exists() failed: %v", err)
-	} else {
-		fmt.Printf("containerRef.Exists() succeeded: %v", containerExists)
+		return "", err
+	}
+	blobSvc := basicClient.GetBlobService()
+	containerRef := blobSvc.GetContainerReference(container)
+	opt := storage.ContainerSASOptions{
+		ContainerSASPermissions: storage.ContainerSASPermissions{
+			BlobServiceSASPermissions: storage.BlobServiceSASPermissions{
+				Read:   true,
+				Write:  true,
+				Delete: true,
+				Add:    true,
+				Create: true,
+			},
+			List: true,
+		},
+		SASOptions: storage.SASOptions{
+			APIVersion: "2017-07-29",
+			Expiry:     time.Now().AddDate(5, 0, 0),
+			UseHTTPS:   true,
+		},
+	}
+	uri, err := containerRef.GetSASURI(opt)
+	if err != nil {
+		return "", err
 	}
 
-	containerCreated, err := containerRef.CreateIfNotExists(&storage.CreateContainerOptions{})
-	if err != nil {
-		fmt.Printf("containerRef.CreateIfNotExists() failed: %v", err)
-	} else {
-		fmt.Printf("containerRef.CreateIfNotExists() succeeded: %v", containerCreated)
+	token := uri
+	ind := strings.IndexAny(token, "?")
+	if ind != -1 {
+		token = token[ind+1:]
 	}
 
-	lr, err := containerRef.ListBlobs(storage.ListBlobsParameters{})
-	if err != nil {
-		fmt.Printf("containerRef.ListBlobs() failed: %v", err)
-	} else {
-		fmt.Printf("containerRef.ListBlobs() succeeded: %v", lr)
-	}
-
-	blobRef := containerRef.GetBlobReference("test.txt")
-
+	return token, nil
 }
