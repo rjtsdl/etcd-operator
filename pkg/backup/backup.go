@@ -42,6 +42,8 @@ const (
 	PVBackupV1 = "v1"
 
 	maxRecentBackupStatusCount = 10
+
+	maxBackups = 4000
 )
 
 type Backup struct {
@@ -148,12 +150,18 @@ func (b *Backup) Run() {
 	}
 
 	go func() {
-		if b.policy.MaxBackups == 0 {
-			return
+		mbp := b.policy.MaxBackups
+		if mbp == 0 {
+			// We don't want this number to growing infinitely at all
+			// all the backup solutions, including S3 and Azure has the list limit
+			// For Azure blob storage it is 5000
+			// If we let it growing infinitely, we lost the ability to determine which backup is the latest
+			mbp = maxBackups
 		}
+
 		for {
 			<-time.After(10 * time.Second)
-			err := b.be.purge(b.policy.MaxBackups)
+			err := b.be.purge(mbp)
 			if err != nil {
 				logrus.Errorf("fail to purge backups: %v", err)
 			}
